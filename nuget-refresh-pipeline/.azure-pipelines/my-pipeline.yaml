@@ -1,0 +1,41 @@
+
+trigger: none
+
+schedules:
+- cron: "0 3 * * *" 
+  displayName: "Nightly Run"
+  branches:
+    include:
+    - main
+  always: true 
+
+pool:
+  vmImage: windows-latest
+
+variables:
+  AZURE_FEED: #FEED GUID GOES HERE IN SINGLE QUOTES
+
+steps:
+- script: echo Starting Feed Restore
+  displayName: 'Restore Start'
+
+#restore packages
+- task: NuGetCommand@2
+  inputs:
+    command: 'restore'
+    restoreSolution: 'packages/myfeed-packages.csproj'
+    feedsToUse: 'config'
+    nugetConfigPath: 'nuget/myfeed-nuget.config'
+    externalFeedCredentials: 'My New Connection' #Service Connection Name 
+    noCache: true
+    restoreDirectory: '$(Pipeline.Workspace)/myfeed-packages/'
+
+#Push to internal feed
+- task: NuGetCommand@2
+  displayName: Push packages to Azure Artifacts
+  inputs:
+    command: push
+    packagesToPush: '$(Pipeline.Workspace)/myfeed-packages/**/*Feed.Package*.nupkg'
+    nuGetFeedType: internal
+    publishVstsFeed: '$(AZURE_FEED)'
+    allowPackageConflicts: true
